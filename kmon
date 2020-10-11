@@ -1,0 +1,268 @@
+#!/bin/sh
+# kmon - Ken's MONitor
+#              
+# Copyright (C) 2010 Kenneth Salerno 
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# DESCRIPTION
+#
+# This is a simple VM and I/O monitor that takes vmstat output and pairs it
+# with the top CPU consumers based on Processes in the Running and
+# Uninterruptible states.  The purpose of this script is performance monitoring
+# and troubleshooting bottlenecks all in one screen.
+#
+# To exit kmon, hit CTRL+C
+#
+
+SCRIPT_VERSION_STRING="kmon 0.8 Copyright (C) 2010 Kenneth Salerno"
+
+case "$1" in
+	'') UPDATE_SECS=1;;
+	[1-9]) UPDATE_SECS=$1;;
+	'-v'|'--version') echo "$SCRIPT_VERSION_STRING"; exit 0;;
+	*)
+		echo "Usage: kmon [options]...
+
+  [1-9]          update interval in seconds (default is 1)
+  -h, --help     print this screen
+  -v, --version  print version
+
+VMSTAT STATE CODES
+  r  Running or runnable (on run queue)
+  b  Uninterruptible sleep (waiting for I/O to complete)
+  Linux only: all block values displayed in MB
+
+PROCESS STATE CODES
+  R  Running or runnable (on run queue)
+  D  Uninterruptible sleep (waiting for I/O to complete)
+  S  Interruptible sleep
+
+$SCRIPT_VERSION_STRING"
+		exit 0
+esac
+
+
+DESIRED_COLUMNS=94
+KMONOUT=/tmp/kmon.out.$$
+
+MY_OS="`uname -s`"
+case "$MY_OS" in
+	'FreeBSD')
+		PSOPTS="-ax -o pcpu,state,nice,time,start,pmem,rss,vsz,user,pid,ppid,nlwp,comm"
+		AWK=awk
+		THREADS_COL=THRDS
+		;;
+	'SunOS')
+		PSOPTS="-e -o pcpu,s,nice,time,stime,pmem,rss,vsz,user,pid,ppid,nlwp,fname"
+		AWK=nawk
+		THREADS_COL=THRDS
+		;;
+	'Linux')
+		PSOPTS="-e -o pcpu,s,nice,time,stime,pmem,rss,vsz,user,pid,ppid,nlwp,fname"
+		AWK=awk
+		THREADS_COL=THRDS
+		# The procps version of vmstat has a nice feature to convert blocks to
+		# Megabytes.  I wish they chose a different parameter than -S since in 
+		# SunOS this means to report swapping rather than paging activity.
+		VMSTAT_OPTS="-S M"
+		;;
+	*BSD)
+		PSOPTS="-ax -o pcpu,state,nice,time,start,pmem,rss,vsz,user,pid,ppid,cpuid,comm"
+		AWK=awk
+		THREADS_COL=CPUID
+		;;
+	*)
+		PSOPTS="-e -o pcpu,s,nice,time,stime,pmem,rss,vsz,user,pid,ppid,nlwp,fname"
+		AWK=awk
+		THREADS_COL=THRDS
+esac
+
+get_rows() {
+	ROWS="`stty -a 2>/dev/null | tr ';' '\n' | grep rows | $AWK '{ print $2}'`"
+}
+
+# FreeBSD version
+get_rows_reversed() {
+	ROWS="`stty -a 2>/dev/null | tr ';' '\n' | grep rows | $AWK '{ print $1}'`"
+}
+
+# SunOS version
+get_rows_equals() {
+	ROWS="`stty -a 2>/dev/null | tr ';' '\n' | grep rows | $AWK '{ print $3}'`"
+}
+
+get_columns() {
+	COLUMNS="`stty -a 2>/dev/null | tr ';' '\n' | grep columns |\
+		$AWK '{ print $2}'`"
+}
+
+# FreeBSD version
+get_columns_reversed() {
+	COLUMNS="`stty -a 2>/dev/null | tr ';' '\n' | grep columns |\
+		$AWK '{ print $1}'`"
+}
+
+# SunOS version
+get_columns_equals() {
+	COLUMNS="`stty -a 2>/dev/null | tr ';' '\n' | grep columns |\
+		$AWK '{ print $3}'`"
+}
+
+check_rows() {
+	if [ -z "$ROWS" -o ! -z "`echo $ROWS | grep -v '[0-9]'`" ]; then
+		return 1
+	else
+		return 0
+	fi
+}
+
+check_columns() {
+	if [ -z "$COLUMNS" -o ! -z "`echo $COLUMNS | grep -v '[0-9]'`" ]; then
+		echo "Sorry, your stty command does not work as expected.  Ciao."
+		exit 1
+	elif [ $COLUMNS -lt $DESIRED_COLUMNS ]; then
+		echo "Please increase the size of your Terminal window to at least $DESIRED_COLUMNS columns."
+		printf "Your Terminal currently has $COLUMNS columns, waiting for you to resize."
+
+		LOOP=0
+		while [ $LOOP -lt 60 ]; do
+			if [ "$STTY_REVERSED" = "true" ]; then
+				get_columns_reversed
+			elif [ "$STTY_EQUALS" = "true" ]; then
+				get_columns_equals
+			else
+				get_columns
+			fi
+
+			if [ $COLUMNS -lt $DESIRED_COLUMNS ]; then
+				printf "."
+				sleep 1
+			else
+				printf "\nThank you, you now have $COLUMNS columns!\n"
+				sleep 2
+				break
+			fi
+			LOOP=`expr $LOOP + 1`
+		done
+
+		if [ $COLUMNS -lt $DESIRED_COLUMNS ]; then
+ 	 		printf "\nI'm sorry but I waited a whole minute for you to resize your window. Ciao.\n"
+			exit 1
+		fi
+	fi
+}
+
+#
+# Test to be sure stty works as expected to calculate current rows in user's
+# Terminal.  Also figure out if the user has enough columns to view the
+# table output properly
+#
+get_rows_equals
+check_rows
+if [ $? -eq 0 ]; then
+	STTY_EQUALS=true
+	get_columns_equals
+	check_columns
+else
+	get_rows
+	check_rows
+	if [ $? -eq 0 ]; then
+		get_columns
+		check_columns
+	else
+		STTY_REVERSED=true
+		get_rows_reversed
+		check_rows
+		if [ $? -eq 0 ]; then
+			get_columns_reversed
+			check_columns
+		else
+			echo "Sorry, your stty command does not work as expected.  Ciao."
+			exit 1
+		fi
+	fi
+fi
+
+# be sure to delete the tmp file before the user exists with CTRL+C
+trap "rm -f $KMONOUT; printf \"\n\nCiao.\n\"; exit 0" 2
+
+MY_ARCH="`uname -p`"
+if [ "$MY_ARCH" = "unknown" ]; then
+	MY_ARCH="`uname -m`"
+fi
+
+clear; echo "$SCRIPT_VERSION_STRING
+This program is distributed under the terms of the GNU General Public License.
+
+     ^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     ^            #    #  #######  #     #   ###    #####              v
+     ^            #   #   #        ##    #   ###   #     #             v
+     ^            #  #    #        # #   #    #    #                   v
+     ^            ###     #####    #  #  #   #      #####              v
+     ^            #  #    #        #   # #               #             v
+     ^            #   #   #        #    ##         #     #             v
+     ^            #    #  #######  #     #          #####              v
+     ^                                                                 v
+     ^    #     #  #######  #     #  ###  #######  #######  ######     v
+     ^    ##   ##  #     #  ##    #   #      #     #     #  #     #    v
+     ^    # # # #  #     #  # #   #   #      #     #     #  #     #    v
+     ^    #  #  #  #     #  #  #  #   #      #     #     #  ######     v
+     ^    #     #  #     #  #   # #   #      #     #     #  #   #      v
+     ^    #     #  #     #  #    ##   #      #     #     #  #    #     v
+     ^    #     #  #######  #     #  ###     #     #######  #     #    v
+     <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<v
+
+
+"; sleep 2
+printf "%s " "gathering stats, please wait..."
+while :; do
+	{
+		if [ "$STTY_REVERSED" = "true" ]; then
+			get_rows_reversed
+		elif [ "$STTY_EQUALS" = "true" ]; then
+			get_rows_equals
+		else
+			get_rows
+		fi
+		LINES=`expr $ROWS - 9`
+		echo "Ken's MONitor - `date` - `uname -n | cut -d. -f1` `uname -s` $MY_ARCH"
+		printf "`uptime | sed 's/..:..:.. //g; s/..:..[aApP][mM] //g'`\n\n"
+
+		# print our PS header
+		printf "%5s %3s %3s %11s %-8s %5s %8s %8s %-8s %5s %5s %5s %-8s\n" \
+			"%CPU" "ST" "NI" "TIME" "STIME" "%MEM" "RSS(MB)" "VSZ(MB)" "USER" \
+			"PID" "PPID" "$THREADS_COL" "COMMAND"
+
+		# format and print our custum PS command and take away the final
+		# new-line character so our display looks nicer
+		ps $PSOPTS | egrep -v 'COMMAND$|COMM$| ps$| kmon$' | $AWK '{
+			printf("%5s %3s %3s %11s %-8s %5s %8.1f %8.1f %-8s %5s %5s %5s %-8s\n",
+				$1, $2, $3, $4, $5, $6, ($7 / 1024), ($8 / 1024), $9, $10, $11,
+				$12, $13);
+		}' | sort -rn | head -$LINES
+
+		# we need the second line of vmstat (awk line 4) because the first
+		# record from vmstat are just the averages from last boot
+		echo ""
+		vmstat $VMSTAT_OPTS 1 2 | $AWK '{
+			if (NR == 1 || NR == 2) print $0;
+			else if (NR == 4) printf("%s", $0);
+		}'
+	} >$KMONOUT
+	clear
+	cat $KMONOUT
+	sleep $UPDATE_SECS
+done

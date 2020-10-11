@@ -1,0 +1,15 @@
+Package: kmon 
+Version: 0.8
+Section: sysutils
+Priority: optional
+Architecture: all
+Essential: no
+Installed-Size: 4902
+Maintainer: Kenneth Salerno[kennethsalerno@yahoo.com]
+Provides: kmon
+Description: Ken's MONitor
+             
+             This is a simple VM and I/O monitor that takes vmstat output and
+             pairs it with the top CPU consumers displaying some useful stats
+             on each PID.  The purpose of this script is performance monitoring
+             and troubleshooting bottlenecks all in one screen.

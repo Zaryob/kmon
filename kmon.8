@@ -1,0 +1,55 @@
+.TH kmon 8 "21 February 2010" "UNIX System V" "System Administration Tools"
+.SH NAME
+kmon \- Ken's MONitor
+.SH SYNOPSIS
+kmon [ options ]...
+.SH DESCRIPTION
+This is a simple VM and I/O monitor that takes vmstat output and pairs it with
+the top CPU consumers displaying some useful stats on each PID.
+The purpose of this script is performance monitoring and troubleshooting
+bottlenecks all in one screen.
+.PP
+To exit kmon, hit CTRL+C
+.PP
+And yes, I am a huge IBM fan and yes, I did get influenced by Nigel's Monitor.
+.PP
+Linux note: to help keep vmstat's columns lined-up on systems with large amounts of RAM, I use the -S M parameter to display values in Megabytes.  No such luxury outside of the procps version of vmstat.
+.PP
+MacOS X note: you could theoretically get my script working with vm_stat, but it's just not as comprehensive as BSD's or procps's vmstat.  You might however find my ps loop useful on its own.
+.PP
+For a full explanation of what each vmstat column refers to please see the vmstat manual page by typing man vmstat.  For a full explanation of the ps columns I chose, please see the ps manual page by typing man ps and scroll down to the option format keywords section near the bottom.
+.SS Options
+.TP
+[1-9]
+update interval in seconds (default is 1)
+.TP
+-h, --help
+print help screen
+.TP
+-v, --version
+print version
+.SH EXAMPLES
+.TP
+Run kmon
+kmon
+.TP
+Run kmon with a 5-second refresh interval
+kmon 5
+.SH AUTHOR
+Kenneth Salerno
+.SH BUGS
+General Note: The "update interval" is always one second longer than expected because the first line of VMSTAT is an average since last boot so we always have to wait one additional second for the next line of output to display.
+.PP
+Works well on GNU/Linux...
+.PP
+This script has major issues on SCO UnixWare because they don't support STATE in their PS implimentation, and there is no VMSTAT there either... so basically my script is useless on SCO UW.
+.PP
+On *BSD there is a more grainular definition of Interruptible Sleep in their PS implimentation.  See the ps manual page for details.
+.PP
+On SunOS their PS doesn't really show Uninterruptible Sleep at all but the script's output is still useful and their VMSTAT is pretty nice (a copy of BSD's vmstat, check out the source on opensolaris.org).
+.PP
+This script won't work in Minix 3 because of similar reasons it doen't work in SCO UNIX
+.PP
+OpenBSD's ps doesn't display light weight processes
+.PP
+I would like to apologize to anyone trying to run this script from a non-modeset console window with 80 columns and 24 rows, the minimum requirement is a Terminal window or Console with at least 94 columns.  The number of PIDs displayed will dynamically increase if you resize your window vertically as well.

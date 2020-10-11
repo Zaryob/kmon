@@ -1,0 +1,91 @@
+28 Feb 2010
+Copyright (C) 2010 Kenneth Salerno
+
+
+AUTHOR
+
+Kenneth Salerno <first & last name (one word) at yahoo dot com>
+
+
+NOTES TO USERS
+
+This is a simple VM and I/O monitor that takes vmstat output and pairs it with
+the top CPU consumers displaying some useful stats on each PID.
+The purpose of this script is performance monitoring and troubleshooting
+bottlenecks all in one screen.
+
+
+TESTED ON THE FOLLOWING OPERATING SYSTEMS
+
+RPM-based (kmon-*.noarch.rpm):
+ Fedora 12 (written here)
+ Red Hat Enterprise 4.8 (target OS)
+ Red Hat Enterprise 5.4 (target OS)
+ Scientific Linux 5.4
+ OpenSUSE 11.2
+
+DEB-based (kmon-*.noarch.deb):
+ Debian 5.0.4
+
+System V-based (kmon-*.noarch.pkg):
+ IBM AIX 6.1
+ SunOS 5.10 Solaris 10 (target OS)
+ SunOS 5.11 OpenSolaris snv_111b
+
+BSD (kmon-*.freebsd.noarch.tbz and kmon-*.openbsd.noarch.tgz):
+ FreeBSD 8.0-STABLE (target OS)
+ OpenBSD 4.6
+
+
+INSTALL
+
+   RPM-based GNU/Linux systems
+   (RHEL, CentOS, Scientific Linux, Fedora, SuSE, OpenSUSE, etc.)
+   # rpm -Uvh kmon-*.rpm
+
+   DEB-based GNU/Linux systems (Debian, Ubuntu, etc.)
+   # dpkg -i kmon-*.deb
+
+   FreeBSD
+   # pkg_add -v kmon-*.tbz
+
+   OpenBSD
+   # pkg_add kmon-*.tgz
+
+   SunOS systems (Solaris, OpenSolaris)
+   # pkgadd -d kmon-*.pkg
+
+
+REMOVAL
+
+   RPM-based systems (RHEL, CentOS, Scientific Linux, Fedora, OpenSUSE, etc.)
+   # rpm -ev kmon
+
+   DEB-based GNU/Linux systems (Debian, Ubuntu, etc.)
+   # dpkg -r kmon
+
+   FreeBSD
+   # pkg_delete 'kmon-*'
+
+   OpenBSD 
+   # pkg_delete kmon
+
+   SunOS systems (Solaris, OpenSolaris)
+   # pkgrm -n kmon
+
+
+USAGE
+
+Run kmon:
+   kmon
+
+Run kmon with an update interval of 5 seconds:
+   kmon 5
+
+To quit kmon:
+   CTRL+C
+
+
+HELP
+
+See Manual (man kmon) and kmon --help

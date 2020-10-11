@@ -1,0 +1,7 @@
+i pkginfo=./pkginfo
+d none bin 0755 root bin
+f none bin/kmon 0755 root bin
+d none share 0755 root bin
+d none share/man 0755 root bin
+d none share/man/man8 0755 root bin
+f none share/man/man8/kmon.8 0644 root bin
